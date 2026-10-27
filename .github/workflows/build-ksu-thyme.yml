@@ -39,8 +39,9 @@ jobs:
           grep -n "CONFIG_KSU" drivers/Makefile drivers/Kconfig | head
           # KernelSU 的 setup 改动了 tracked 文件，会让 setlocalversion 追加 -dirty，
           # 导致 vermagic 与官方内核不一致（vendor 模块拒载）。这里去掉该后缀。
-          sed -i 's/"-dirty"/""/' scripts/setlocalversion
-          grep -n 'dirty' scripts/setlocalversion || true
+          sed -i 's/-dirty//g' scripts/setlocalversion
+          echo "--- setlocalversion 中的 dirty 行（应为空）---"
+          grep -n 'dirty' scripts/setlocalversion || echo "(已清除)"
 
       - name: Configure
         working-directory: kernel
@@ -70,10 +71,10 @@ jobs:
           make_args=(-j"$(nproc)" O=out ARCH=arm64 SUBARCH=arm64 \
             CC="ccache clang" HOSTCC="ccache clang" \
             CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi-)
-          VER=$(make "${make_args[@]}" kernelrelease 2>/dev/null | tail -1)
+          VER=$(make "${make_args[@]}" kernelrelease 2>/dev/null | tr -d '\r' | grep -E '^[0-9]+\.[0-9]+' | tail -1)
           EXPECT="4.19.325-cip131-st15-perf-g71b13e62f057"
-          echo "kernelrelease = $VER"
-          echo "expected      = $EXPECT"
+          echo "kernelrelease = [$VER]"
+          echo "expected      = [$EXPECT]"
           if [ "$VER" != "$EXPECT" ]; then
             echo "::error::版本串不一致，vendor 模块会因 vermagic 拒载"
             exit 1
